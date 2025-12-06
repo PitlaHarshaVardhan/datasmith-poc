@@ -1,0 +1,100 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  max-width: 700px;
+  margin: 40px auto;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+#chat-window {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  height: 400px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  background: #f9fafb;
+}
+
+.message {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  max-width: 80%;
+}
+
+.message.user {
+  background: #dbeafe;
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.message.agent-receptionist {
+  background: #ecfdf3;
+}
+
+.message.agent-clinical {
+  background: #fef3c7;
+}
+
+.message.system {
+  background: #e5e7eb;
+  font-style: italic;
+}
+
+.meta {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+#chat-form {
+  display: flex;
+  gap: 8px;
+}
+
+#user-input {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
+button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+.patients-box {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  padding: 10px;
+  border-radius: 8px;
+  margin: 10px 0;
+  display: none;
+}

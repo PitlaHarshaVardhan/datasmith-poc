@@ -1,0 +1,55 @@
+[
+  {
+    "patient_name": "John Smith",
+    "discharge_date": "2024-01-15",
+    "primary_diagnosis": "Chronic Kidney Disease Stage 3",
+    "medications": ["Lisinopril 10mg daily", "Furosemide 20mg twice daily"],
+    "dietary_restrictions": "Low sodium (2g/day), fluid restriction (1.5L/day)",
+    "follow_up": "Nephrology clinic in 2 weeks",
+    "warning_signs": "Swelling, shortness of breath, decreased urine output",
+    "discharge_instructions": "Monitor blood pressure daily, weigh yourself daily"
+  },
+  {
+    "patient_name": "Jane Doe",
+    "discharge_date": "2024-02-10",
+    "primary_diagnosis": "Acute Kidney Injury on CKD",
+    "medications": ["Amlodipine 5mg daily"],
+    "dietary_restrictions": "Low sodium, avoid NSAIDs, adequate hydration as advised",
+    "follow_up": "Nephrology clinic in 1 week",
+    "warning_signs": "Reduced urine, confusion, persistent vomiting",
+    "discharge_instructions": "Check blood pressure twice daily and record readings"
+  },
+  {
+    "patient_name": "Michael Johnson",
+    "discharge_date": "2024-03-05",
+    "primary_diagnosis": "Nephrotic Syndrome",
+    "medications": ["Prednisolone 40mg daily", "Calcium supplement daily"],
+    "dietary_restrictions": "Low sodium, moderate protein intake",
+    "follow_up": "Nephrology clinic in 10 days",
+    "warning_signs": "Sudden weight gain, swelling around eyes, breathing difficulty",
+    "discharge_instructions": "Daily weight monitoring and report rapid weight gain"
+  },
+  {
+    "patient_name": "Emily Davis",
+    "discharge_date": "2024-03-20",
+    "primary_diagnosis": "Hypertensive Nephropathy",
+    "medications": ["Losartan 50mg daily", "Hydrochlorothiazide 12.5mg daily"],
+    "dietary_restrictions": "Low sodium, avoid processed foods",
+    "follow_up": "Primary care in 1 week, nephrology in 1 month",
+    "warning_signs": "Severe headache, chest pain, blurred vision",
+    "discharge_instructions": "Measure blood pressure morning and evening"
+  },
+  {
+    "patient_name": "Robert Brown",
+    "discharge_date": "2024-04-01",
+    "primary_diagnosis": "End-Stage Renal Disease on Hemodialysis",
+    "medications": [
+      "Erythropoietin injection as scheduled",
+      "Phosphate binder with meals"
+    ],
+    "dietary_restrictions": "Low potassium, low phosphate, fluid restriction 1L/day",
+    "follow_up": "Dialysis center as per schedule",
+    "warning_signs": "Missed dialysis, chest pain, difficulty breathing, confusion",
+    "discharge_instructions": "Do not miss dialysis sessions; call center if unwell"
+  }
+]

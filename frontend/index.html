@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Post-Discharge Medical AI Assistant (POC)</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <h1>Post-Discharge Medical AI Assistant</h1>
+      <p class="subtitle">
+        This is an AI assistant for educational purposes only.<br />
+        Always consult healthcare professionals for medical advice.
+      </p>
+
+      <div id="chat-window"></div>
+
+      <form id="chat-form">
+        <input
+          type="text"
+          id="user-input"
+          placeholder="Type your message..."
+          autocomplete="off"
+          required
+        />
+        <button type="submit">Send</button>
+      </form>
+      <button id="show-patients">Show Sample Patients</button>
+      <div id="patients-list" class="patients-box"></div>
+    </div>
+
+    <script>
+      // Backend base URL
+      const BASE_URL = window.location.origin.replace(/\/$/, "");
+    </script>
+    <script src="script.js"></script>
+  </body>
+</html>
