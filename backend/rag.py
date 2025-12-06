@@ -52,17 +52,33 @@ _collection = _chroma_client.get_or_create_collection(
 )
 
 
-def _chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> List[str]:
+def _chunk_text(
+    text: str,
+    chunk_size: int = 200,     # number of words per chunk
+    overlap: int = 50,         # number of overlapping words
+) -> List[str]:
     words = text.split()
-    chunks = []
+    chunks: List[str] = []
+
+    if not words:
+        return chunks
+
+    n = len(words)
     start = 0
-    while start < len(words):
-        end = min(len(words), start + chunk_size)
-        chunk = " ".join(words[start:end])
-        chunks.append(chunk)
-        start = end - overlap
-        if start < 0:
-            start = 0
+
+    while start < n:
+        end = min(n, start + chunk_size)
+        chunk = " ".join(words[start:end]).strip()
+        if chunk:
+            chunks.append(chunk)
+
+        if end == n:
+            # Reached the end of the text – break to avoid infinite loop
+            break
+
+        # Move start forward with overlap
+        start = max(0, end - overlap)
+
     return chunks
 
 
