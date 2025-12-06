@@ -4,6 +4,7 @@ import logging
 
 import chromadb
 from chromadb.config import Settings
+from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 import os
 
@@ -15,10 +16,13 @@ logger = logging.getLogger(__name__)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     logger.warning("GEMINI_API_KEY is not set – RAG will fail until it is configured.")
-
 genai.configure(api_key=GEMINI_API_KEY)
 
-EMBED_MODEL = "models/embedding-001"
+# Local embedding model (no remote quota)
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+_embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+
+CHAT_MODEL = "gemini-1.5-flash"  # or "gemini-pro"
 CHAT_MODEL = "gemini-1.5-flash"  # or "gemini-pro" if you prefer
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -27,15 +31,11 @@ CHROMA_DIR = Path(__file__).parent / "chroma"
 
 
 # ----- Embedding helper -----
-
 def get_embedding(text: str) -> List[float]:
-    """Get embeddings from Gemini embedding model."""
-    result = genai.embed_content(
-        model=EMBED_MODEL,
-        content=text,
-    )
-    # result["embedding"] is a list[float]
-    return result["embedding"]
+    """Get embeddings from local SentenceTransformer model (no API quota)."""
+    # encode returns numpy array; convert to list
+    return _embedder.encode(text).tolist()
+
 
 
 # ----- Initialize Chroma vector store -----
