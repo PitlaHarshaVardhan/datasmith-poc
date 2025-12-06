@@ -1,25 +1,37 @@
 import logging
-from typing import Dict, Any
-from openai import OpenAI
-from .db import find_patient_by_name
+from typing import Dict, Any, List
+import os
+
+import google.generativeai as genai
+
+from .db import find_patient_by_name, get_patient_reports
 from .rag import generate_answer_with_rag
 from .web_search import web_search
 from .models import PatientReport, RAGResult
 
 logger = logging.getLogger(__name__)
-client = OpenAI()
 
-# In-memory session store (for POC)
+# ----- Configure Gemini -----
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    logger.warning("GEMINI_API_KEY is not set – agents will fail until it is configured.")
+
+genai.configure(api_key=GEMINI_API_KEY)
+
+CHAT_MODEL = "gemini-1.5-flash"  # or "gemini-pro"
+
 SESSION_STATE: Dict[str, Dict[str, Any]] = {}
+
 
 def get_session(session_id: str) -> Dict[str, Any]:
     if session_id not in SESSION_STATE:
         SESSION_STATE[session_id] = {
-            "stage": "ask_name",   # "ask_name", "have_patient", "clinical"
+            "stage": "ask_name",   # "ask_name", "await_name", "have_patient", "clinical"
             "patient": None,
             "history": [],
         }
     return SESSION_STATE[session_id]
+
 
 # ---------- Receptionist Agent ----------
 
@@ -35,7 +47,7 @@ class ReceptionistAgent:
         # Log history
         state["history"].append({"role": "patient", "message": message})
 
-        # Stage 1: ask for name
+        # Stage 1: ask for name (INIT message)
         if stage == "ask_name":
             state["stage"] = "await_name"
             reply = "Hello! I'm your post-discharge care assistant. What's your full name?"
@@ -46,11 +58,20 @@ class ReceptionistAgent:
             patient_name = message.strip()
             report = find_patient_by_name(patient_name)
             if report is None:
+                # Suggest available patients so a new tester can use the app
+                all_patients: List[PatientReport] = get_patient_reports()
+                patient_names = [p.patient_name for p in all_patients]
                 reply = (
-                    f"I could not find a discharge report for '{patient_name}'. "
-                    "Please check the spelling or try another name."
+                    f"I could not find a discharge report for '{patient_name}'.\n\n"
+                    "Here are sample patients you can try:\n"
+                    + "\n".join("- " + n for n in patient_names)
                 )
-                return {"reply": reply, "agent": ReceptionistAgent.name, "metadata": {"stage": state["stage"]}}
+                return {
+                    "reply": reply,
+                    "agent": ReceptionistAgent.name,
+                    "metadata": {"stage": state["stage"], "patient_found": False},
+                }
+
             # Found patient
             state["patient"] = report
             state["stage"] = "have_patient"
@@ -68,7 +89,6 @@ class ReceptionistAgent:
 
         # Stage 3: have patient, classify question
         if stage == "have_patient":
-            # route medical vs non-medical
             if ReceptionistAgent._is_medical_query(message):
                 state["stage"] = "clinical"
                 reply = (
@@ -82,9 +102,12 @@ class ReceptionistAgent:
                     "metadata": {"handoff": True, "to": "clinical", "stage": state["stage"]},
                 }
             else:
-                # Non-medical / general follow-up – receptionist can respond via small LLM
                 reply = ReceptionistAgent._small_talk_response(state["patient"], message)
-                return {"reply": reply, "agent": ReceptionistAgent.name, "metadata": {"stage": state["stage"]}}
+                return {
+                    "reply": reply,
+                    "agent": ReceptionistAgent.name,
+                    "metadata": {"stage": state["stage"], "handoff": False},
+                }
 
         # Stage 4: once in clinical, receptionist doesn't respond anymore
         if stage == "clinical":
@@ -92,7 +115,11 @@ class ReceptionistAgent:
                 "You are now connected to the Clinical AI Agent. "
                 "Please wait for a medical answer."
             )
-            return {"reply": reply, "agent": ReceptionistAgent.name, "metadata": {"stage": state["stage"]}}
+            return {
+                "reply": reply,
+                "agent": ReceptionistAgent.name,
+                "metadata": {"stage": state["stage"]},
+            }
 
         # Fallback
         reply = "I'm not sure how to handle that. Could you rephrase?"
@@ -104,22 +131,23 @@ class ReceptionistAgent:
         medical_keywords = [
             "pain", "swelling", "shortness of breath", "dizzy", "dizziness",
             "blood pressure", "bp", "urine", "kidney", "fever", "symptom",
-            "should I be worried", "emergency", "side effect",
+            "should i be worried", "emergency", "side effect",
         ]
         return any(k in msg for k in medical_keywords)
 
     @staticmethod
     def _small_talk_response(report: PatientReport, message: str) -> str:
-        # Simple templated answer instead of hitting LLM again
+        # Simple templated answer (no LLM needed here)
         return (
             f"Thanks for the update, {report.patient_name}. "
             f"Remember your discharge instructions: {report.discharge_instructions}. "
             "If you have any medical symptoms like "
             f"{report.warning_signs}, please tell me and I'll connect you "
             "to the Clinical AI Agent.\n\n"
-            "This is an AI assistant for educational purposes only. "
+            "This is an AI assistant for educational purposes only.\n"
             "Always consult healthcare professionals for medical advice."
         )
+
 
 # ---------- Clinical Agent ----------
 
@@ -130,11 +158,15 @@ class ClinicalAgent:
     def handle_message(session_id: str, message: str) -> Dict[str, Any]:
         state = get_session(session_id)
         state["history"].append({"role": "patient", "message": message})
-        patient = state.get("patient")
+        patient: PatientReport = state.get("patient")
 
-        logger.info("Clinical agent handling message for session %s, patient=%s", session_id, getattr(patient, "patient_name", None))
+        logger.info(
+            "Clinical agent handling message for session %s, patient=%s",
+            session_id,
+            getattr(patient, "patient_name", None),
+        )
 
-        # Build personalized question including patient context
+        # Build personalized context
         patient_context = ""
         if patient:
             patient_context = (
@@ -147,14 +179,12 @@ class ClinicalAgent:
 
         question = patient_context + "Patient question: " + message
 
-        # Decide whether to use web search
         use_web = ClinicalAgent._should_use_web_search(message)
 
         if use_web:
             web_results = web_search(message, max_results=3)
-            # Combine web with RAG
             rag_result: RAGResult = generate_answer_with_rag(question, k=4)
-            answer = ClinicalAgent._answer_with_web_and_rag(message, rag_result, web_results)
+            answer = ClinicalAgent._answer_with_web_and_rag(question, rag_result, web_results)
             used_web = True
         else:
             rag_result: RAGResult = generate_answer_with_rag(question, k=4)
@@ -166,7 +196,7 @@ class ClinicalAgent:
             "Clinical agent answer generated. used_web=%s, docs=%d, web_results=%d",
             used_web,
             len(rag_result.docs),
-            len(web_results)
+            len(web_results),
         )
         state["history"].append({"role": "clinical", "message": answer})
 
@@ -186,7 +216,6 @@ class ClinicalAgent:
 
     @staticmethod
     def _format_answer_from_rag(r: RAGResult) -> str:
-        # Append explicit citation list + disclaimers (already part of answer, but reinforce)
         citations = []
         for i, d in enumerate(r.docs, start=1):
             citations.append(f"[Ref {i}] {d.source} (similarity: {d.score:.2f})")
@@ -200,7 +229,7 @@ class ClinicalAgent:
 
     @staticmethod
     def _answer_with_web_and_rag(question: str, rag_result: RAGResult, web_results: Any) -> str:
-        # Build a combined answer using LLM again for clarity
+        # Build context
         context_rag = "\n\n".join(
             [f"[RAG {i+1}] {d.content}" for i, d in enumerate(rag_result.docs)]
         )
@@ -208,7 +237,7 @@ class ClinicalAgent:
             [f"[WEB {i+1}] {w}" for i, w in enumerate(web_results)]
         )
 
-        system_prompt = (
+        prompt = (
             "You are a Clinical AI assistant with access to:\n"
             "- Nephrology reference materials (RAG context)\n"
             "- Recent web search results (WEB context)\n\n"
@@ -217,25 +246,16 @@ class ClinicalAgent:
             "2. Use phrases like 'According to reference materials [RAG]' and "
             "'According to recent web information [WEB]'.\n"
             "3. Provide a patient-friendly explanation.\n"
-            "4. End with the standard medical disclaimers."
-        )
-
-        user_prompt = (
+            "4. End with the standard medical disclaimers.\n\n"
             f"Patient question: {question}\n\n"
             f"RAG context:\n{context_rag}\n\n"
             f"Web search context:\n{context_web}\n\n"
             "Now provide a single, coherent answer."
         )
 
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.2,
-        )
-        base_answer = completion.choices[0].message.content
+        model = genai.GenerativeModel(CHAT_MODEL)
+        response = model.generate_content(prompt)
+        base_answer = response.text or ""
 
         disclaimer = (
             "\n\nThis is an AI assistant for educational purposes only.\n"
